@@ -1,0 +1,17 @@
+pipeline {
+    agent { label 'windows' }  // Assure-toi d'utiliser un agent avec un label 'windows'
+    
+    stages {
+        stage('Git clone') {
+            steps {
+                bat 'git clone https://github.com/ton-utilisateur/ton-depot.git'
+            }
+        }
+        stage('Install') {
+            steps {
+                bat 'npm install'  // Exemple d'installation, à adapter à ton besoin
+            }
+        }
+        // D'autres étapes ici...
+    }
+}
