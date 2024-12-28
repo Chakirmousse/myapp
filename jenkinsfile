@@ -1,17 +1,111 @@
 pipeline {
-    agent { label 'windows' }  // Assure-toi d'utiliser un agent avec un label 'windows'
-    
+    agent any  // Utilisation de n'importe quel agent pour la pipeline
+
+    tools {
+        dotnetsdk 'dotnet-sdk-8.0'  // Assurez-vous que la version .NET SDK 8.0 est installée dans Jenkins
+    }
+
+    environment {
+        DOCKER_IMAGE = 'mydockerhubusername/myapp'  // Changez-le en fonction de votre utilisateur Docker Hub
+        DOCKER_TAG = 'latest'  // Tag de la version Docker
+        DOCKER_CREDENTIALS_ID = 'dockerhub'  // Identifiant de credentials pour Docker Hub dans Jenkins
+    }
+
+    parameters {
+        string(name: 'BRANCH_NAME', defaultValue: 'main', description: 'Branch to build')  // Paramètre pour choisir la branche à construire
+    }
+
     stages {
-        stage('Git clone') {
+        // Checkout du code source depuis le dépôt Git
+        stage('Checkout') {
             steps {
-                bat 'git clone https://github.com/ton-utilisateur/ton-depot.git'
+                git branch: params.BRANCH_NAME, 
+                    url: 'https://github.com/Chakirmousse/myapp',  // URL de votre dépôt Git
+                    credentialsId: 'jenkins'  // ID des credentials pour l'authentification avec GitHub
             }
         }
-        stage('Install') {
+
+        // Affiche un message
+        stage('Print Name') {
             steps {
-                bat 'npm install'  // Exemple d'installation, à adapter à ton besoin
+                echo "Building .NET project"
             }
         }
-        // D'autres étapes ici...
+
+        // Restauration des dépendances du projet
+        stage('Restore') {
+            steps {
+                dir('src') {  // Naviguer dans le répertoire src (à ajuster si nécessaire)
+                    sh 'dotnet restore'  // Restaurer les packages NuGet
+                }
+            }
+        }
+
+        // Compilation du projet .NET
+        stage('Build') {
+            steps {
+                dir('src') {  // Assurez-vous d'être dans le répertoire du projet .NET
+                    sh 'dotnet build --configuration Release'  // Compilation en mode Release
+                }
+            }
+        }
+
+        // Exécution des tests unitaires
+        stage('Test') {
+            steps {
+                dir('src') {
+                    sh 'dotnet test --configuration Release --logger "trx"'  // Exécute les tests en mode Release
+                }
+            }
+            post {
+                always {
+                    junit '**/TestResults/*.xml'  // Collecte des résultats de tests
+                }
+            }
+        }
+
+        // Publication du projet
+        stage('Publish') {
+            steps {
+                dir('src') {
+                    sh 'dotnet publish --configuration Release --output ./publish'  // Publier le projet dans le répertoire ./publish
+                }
+            }
+        }
+
+        // Construction de l'image Docker
+        stage('Docker Build') {
+            steps {
+                script {
+                    sh """
+                    docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ./publish  // Construction de l'image Docker
+                    """
+                }
+            }
+        }
+
+        // Push de l'image Docker vers Docker Hub
+        stage('Docker Push') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS_ID, usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    script {
+                        sh """
+                        echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+                        docker push ${DOCKER_IMAGE}:${DOCKER_TAG}  // Pousser l'image Docker vers Docker Hub
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    // Actions post-pipeline
+    post {
+        always {
+            echo 'Pipeline execution completed.'
+        }
+        failure {
+            echo 'Pipeline failed.'
+        }
     }
 }

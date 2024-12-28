@@ -1,5 +1,5 @@
 # Étape 1 : Utiliser l'image officielle de .NET SDK pour la construction
-FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 
 # Définir le répertoire de travail dans l'image
 WORKDIR /app
@@ -14,7 +14,7 @@ RUN dotnet restore Demo1.sln.sln
 RUN dotnet build Demo1.sln.sln -c Release -o /app/build
 
 # Étape 2 : Utiliser l'image de runtime de .NET pour exécuter l'application
-FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 
 WORKDIR /app
 
